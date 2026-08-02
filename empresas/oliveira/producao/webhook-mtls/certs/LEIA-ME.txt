@@ -1,0 +1,24 @@
+CERTIFICADOS DO GATEWAY mTLS DO WEBHOOK  --  AMBIENTE: PRODUÇÃO
+==============================================================
+
+Nada de real é versionado aqui (o .gitignore ignora *.pem/*.crt/*.key).
+
+Arquivos que este nginx usa (/etc/nginx/certs):
+
+  server.crt / server.key  -> certificado do SEU domínio de webhook (o HTTPS que
+                              você serve). Em produção: cert real do seu domínio
+                              (ex.: Let's Encrypt). NÃO use self-signed em prod.
+
+  bb-ca.pem                -> a cadeia (CA) do Banco do Brasil de PRODUÇÃO,
+                              usada para VALIDAR o certificado que o BB apresenta
+                              ao chamar o webhook (mTLS).
+                              DICA: é a mesma cadeia do BB que já está em
+                              ../../certs/ca.pem (o ca.pem do ambiente produção).
+                              Pode copiar: cp ../../certs/ca.pem ./bb-ca.pem
+
+NÃO vai aqui: cliente.pem. Esse é do lado de GERAR pix (você é cliente do BB) e
+fica em ../../certs/cliente.pem. No webhook quem é cliente é o BB, não você.
+
+ATENÇÃO (produção):
+  - server.* tem que ser o cert REAL do seu domínio.
+  - bb-ca.pem tem que ser a cadeia REAL de PRODUÇÃO do BB.

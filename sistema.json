@@ -1,0 +1,4 @@
+{
+  "ambiente": "sandbox",
+  "_obs": "Ambiente global do PIX (sandbox | producao). Sem banco — só este arquivo. Cada empresa ainda tem sua config em empresas/{slug}/{ambiente}/."
+}

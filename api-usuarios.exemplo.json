@@ -1,0 +1,13 @@
+{
+  "_obs": "Usuários da API externa de PIX, um por empresa e POR AMBIENTE. Copie para api-usuarios.json (NÃO versionado). Senha em texto (campo 'senha') — edite quando quiser. Também aceita 'senha_hash' (bcrypt) no lugar de 'senha'.",
+  "oliveira": {
+    "sandbox": {
+      "usuario": "oliveira_sandbox",
+      "senha": "TROQUE_ESTA_SENHA_SANDBOX"
+    },
+    "producao": {
+      "usuario": "oliveira_prod",
+      "senha": "TROQUE_ESTA_SENHA_PROD"
+    }
+  }
+}

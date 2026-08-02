@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "slug": "oliveira",
+  "nome": "Oliveira Fácil",
+  "banco": "bb",
+  "ativo": true,
+  "_obs": "Dados não sensíveis da empresa. As credenciais ficam em cada ambiente (sandbox/producao)/config.json, que NÃO é versionado."
+}

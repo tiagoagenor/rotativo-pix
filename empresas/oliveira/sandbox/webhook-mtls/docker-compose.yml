@@ -1,0 +1,12 @@
+# Gateway mTLS (nginx) do webhook PIX  --  AMBIENTE: SANDBOX (homologacao BB)
+# Sobe com: docker compose up -d   |   Derruba com: docker compose down
+services:
+  webhook-mtls-sandbox:
+    image: nginx:alpine
+    container_name: webhook-mtls-sandbox
+    ports:
+      - "8443:443"          # host 8443 -> container 443  (SANDBOX)
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+# Gateway mTLS (nginx) do webhook PIX  --  AMBIENTE: PRODUCAO
+# Sobe com: docker compose up -d   |   Derruba com: docker compose down
+services:
+  webhook-mtls-producao:
+    image: nginx:alpine
+    container_name: webhook-mtls-producao
+    ports:
+      - "9443:443"          # host 9443 -> container 443  (PRODUCAO)
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped

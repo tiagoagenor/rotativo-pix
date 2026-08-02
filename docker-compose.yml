@@ -1,0 +1,43 @@
+# =============================================================================
+# Sistema completo em Docker:
+#   nginx (443)  ->  app Node (3000)
+#
+#   - nginx é o ÚNICO ponto de entrada (HTTPS 443).
+#   - mTLS é EXIGIDO apenas na rota /webhook/pix/ (só o BB entra).
+#   - Todo o resto (API JWT, /health) passa SEM mTLS.
+#   - A CONFIG (empresas/, bancos/, sistema.json, api-usuarios.json) e os
+#     LOGS entram por volume — não ficam dentro da imagem.
+#
+# Subir:   docker compose up -d --build
+# Derrubar: docker compose down
+# =============================================================================
+services:
+  app:
+    build: .
+    container_name: rotativo-pix-app
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+    volumes:
+      - ./bancos:/app/bancos:ro
+      - ./empresas:/app/empresas:ro
+      - ./sistema.json:/app/sistema.json:ro
+      - ./api-usuarios.json:/app/api-usuarios.json:ro
+      - ./logs:/app/logs
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: rotativo-pix-nginx
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    restart: unless-stopped

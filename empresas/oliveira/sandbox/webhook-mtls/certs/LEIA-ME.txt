@@ -1,0 +1,24 @@
+CERTIFICADOS DO GATEWAY mTLS DO WEBHOOK  --  AMBIENTE: SANDBOX
+=============================================================
+
+Nada de real é versionado aqui (o .gitignore ignora *.pem/*.crt/*.key).
+
+Arquivos que este nginx usa (/etc/nginx/certs):
+
+  server.crt / server.key  -> certificado do SEU domínio de webhook (o HTTPS que
+                              você serve). Em teste: self-signed. Em produção:
+                              cert real do seu domínio (ex.: Let's Encrypt).
+
+  bb-ca.pem                -> a cadeia (CA) do Banco do Brasil de HOMOLOGAÇÃO,
+                              usada para VALIDAR o certificado que o BB apresenta
+                              ao chamar o webhook (mTLS).
+                              DICA: é a mesma cadeia do BB que já está em
+                              ../../certs/ca.pem (o ca.pem do ambiente sandbox).
+                              Pode copiar: cp ../../certs/ca.pem ./bb-ca.pem
+
+NÃO vai aqui: cliente.pem. Esse é do lado de GERAR pix (você é cliente do BB) e
+fica em ../../certs/cliente.pem. No webhook quem é cliente é o BB, não você.
+
+TESTE LOCAL:
+  ./gerar-certs-teste.sh        # cria server.*, uma CA de teste (bb-ca.pem) e
+                                # client-ok/client-bad para simular o BB.

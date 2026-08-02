@@ -1,0 +1,34 @@
+# ==========================================================================
+# SEGURANÇA — NUNCA versionar credenciais nem certificados/chaves privadas
+# ==========================================================================
+
+# Config real de cada empresa/ambiente (contém credenciais). Versione só o *.exemplo.json.
+empresas/**/config.json
+**/config.json
+
+# Variáveis de ambiente do microserviço Node (contém JWT_SECRET).
+.env
+.env.local
+.env.*.local
+
+# Usuários/senhas da API externa (JWT). Versione só o api-usuarios.exemplo.json.
+api-usuarios.json
+
+# Logs do PIX em arquivo (podem ter dados de requisição).
+logs/
+
+# Certificados e chaves (mTLS). Versione só o LEIA-ME.txt de cada pasta certs/.
+**/certs/*
+!**/certs/LEIA-ME.txt
+
+# Rede de segurança: qualquer material de certificado/chave, em qualquer lugar.
+*.pem
+*.pfx
+*.p12
+*.key
+*.cer
+*.crt
+
+# Node
+node_modules/
+.npm-cache/

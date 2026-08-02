@@ -1,0 +1,38 @@
+{
+  "ambiente": "sandbox",
+  "ativo": true,
+  "api_base": "sem_mtls",
+  "ignorar_tls": true,
+  "credenciais": {
+    "app_key": "SUBSTITUA_APP_KEY",
+    "client_id": "SUBSTITUA_CLIENT_ID",
+    "client_secret": "SUBSTITUA_CLIENT_SECRET",
+    "basic": "SUBSTITUA_BASIC",
+    "registration_access_token": ""
+  },
+  "chave_pix": "SUBSTITUA_CHAVE_PIX",
+  "webhook": {
+    "token": "SUBSTITUA_TOKEN_UNICO",
+    "restringe_ip": true,
+    "ips": [
+      "201.33.144.0/20"
+    ]
+  },
+  "certificados": {
+    "cliente": "certs/cliente.pem",
+    "ca": "certs/ca.pem"
+  },
+  "_ajuda": {
+    "api_base": "sem_mtls (Extranet, sem certificado) | com_mtls (api-pix, exige cliente.pem registrado no BB)",
+    "ignorar_tls": "true só em sandbox (Extranet usa CA interna). Em produção use false.",
+    "certificados.cliente": "cliente.pem = SEU certificado de cliente (cert + chave). Só necessário com api_base=com_mtls.",
+    "certificados.ca": "ca.pem = cadeia pública do BB (verificar o servidor)."
+  },
+  "api": {
+    "restringe_ip": false,
+    "ips": [
+      "203.0.113.10",
+      "198.51.100.0/24"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+# Rede de segurança local (a raiz já ignora, aqui reforçamos).
+# Nada de material de certificado/chave versionado.
+certs/*
+!certs/LEIA-ME.txt
+*.pem
+*.crt
+*.key
+*.cer
+*.pfx
+*.p12
+*.csr
+*.srl

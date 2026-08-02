@@ -1,0 +1,20 @@
+CERTIFICADOS — produção (Oliveira Fácil)
+=========================================
+
+Coloque AQUI (esta pasta NÃO é versionada, exceto este arquivo):
+
+  ca.pem       -> cadeia PÚBLICA do BB de produção (verificar o servidor).
+  cliente.pem  -> OBRIGATÓRIO em produção. É o A1 (e-CNPJ ICP-Brasil) da empresa,
+                  cert + chave privada, e precisa estar REGISTRADO na aplicação
+                  no Portal do Desenvolvedor do BB.
+
+Gerar o cliente.pem a partir do .pfx/.p12 do A1:
+  openssl pkcs12 -in SEU_A1.pfx -nodes -out cliente.pem
+
+Conferir (o segundo tem que dar 1 = chave privada):
+  grep -c "BEGIN CERTIFICATE" cliente.pem
+  grep -c "PRIVATE KEY" cliente.pem
+
+IMPORTANTE:
+- Sem o cliente.pem REGISTRADO no BB, produção dá "bad certificate"/"certificate unknown".
+- cliente.pem contém a CHAVE PRIVADA da empresa — NUNCA versione, NUNCA compartilhe.

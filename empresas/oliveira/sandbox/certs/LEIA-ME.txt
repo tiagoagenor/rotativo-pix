@@ -1,0 +1,16 @@
+CERTIFICADOS — sandbox (Oliveira Fácil)
+========================================
+
+Coloque AQUI (esta pasta NÃO é versionada, exceto este arquivo):
+
+  ca.pem       -> cadeia PÚBLICA do BB (verificar o servidor). Já pode existir.
+  cliente.pem  -> SEU certificado de cliente (cert + chave privada), SÓ se usar
+                  api_base = "com_mtls". Para api_base = "sem_mtls" (Extranet),
+                  NÃO precisa de cliente.pem.
+
+Gerar o cliente.pem a partir do seu .pfx (A1):
+  openssl pkcs12 -in SEU_A1.pfx -nodes -out cliente.pem
+
+IMPORTANTE:
+- cliente.pem contém a CHAVE PRIVADA — nunca versione, nunca compartilhe.
+- Em sandbox, o caminho recomendado é a base "sem_mtls" (não precisa de certificado).

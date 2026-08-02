@@ -1,0 +1,142 @@
+{
+  "info": {
+    "name": "Rotativo PIX API",
+    "description": "API do microserviço rotativo-pix (standalone Node). Endpoints DUPLICADOS por ambiente: /api/pix/sandbox/* e /api/pix/producao/*. Cada ambiente tem login/senha próprios; o login salva o JWT (24h) na variável do ambiente e é usado nas rotas protegidas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "usuario_sandbox", "value": "oliveira_sandbox", "type": "string" },
+    { "key": "senha_sandbox", "value": "sandbox123", "type": "string" },
+    { "key": "token_sandbox", "value": "", "type": "string" },
+    { "key": "usuario_producao", "value": "oliveira_prod", "type": "string" },
+    { "key": "senha_producao", "value": "prod123", "type": "string" },
+    { "key": "token_producao", "value": "", "type": "string" },
+    { "key": "txid", "value": "", "type": "string" },
+    { "key": "webhook_token", "value": "TROQUE-POR-TOKEN-UNICO-SANDBOX", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Sandbox",
+      "item": [
+        {
+          "name": "1. Login (JWT sandbox)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try { const d = pm.response.json(); if (d && d.token) { pm.collectionVariables.set('token_sandbox', d.token); } } catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"usuario\": \"{{usuario_sandbox}}\",\n  \"senha\": \"{{senha_sandbox}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pix/sandbox/token", "host": ["{{base_url}}"], "path": ["api", "pix", "sandbox", "token"] }
+          }
+        },
+        {
+          "name": "2. Gerar cobrança",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_sandbox}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"1.00\",\n  \"descricao\": \"Teste sandbox\",\n  \"api_base\": \"com_mtls\",\n  \"devedor\": { \"cpf\": \"123.456.789-09\", \"nome\": \"Fulano de Tal\" },\n  \"info_adicionais\": [ { \"nome\": \"Placa\", \"valor\": \"ABC1D23\" } ],\n  \"expiracao\": 3600\n}" },
+            "url": { "raw": "{{base_url}}/api/pix/sandbox/cobranca", "host": ["{{base_url}}"], "path": ["api", "pix", "sandbox", "cobranca"] }
+          }
+        },
+        {
+          "name": "3. Consultar cobrança",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_sandbox}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/pix/sandbox/cobranca/{{txid}}", "host": ["{{base_url}}"], "path": ["api", "pix", "sandbox", "cobranca", "{{txid}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produção",
+      "item": [
+        {
+          "name": "1. Login (JWT produção)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try { const d = pm.response.json(); if (d && d.token) { pm.collectionVariables.set('token_producao', d.token); } } catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"usuario\": \"{{usuario_producao}}\",\n  \"senha\": \"{{senha_producao}}\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pix/producao/token", "host": ["{{base_url}}"], "path": ["api", "pix", "producao", "token"] }
+          }
+        },
+        {
+          "name": "2. Gerar cobrança",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_producao}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"0.01\",\n  \"descricao\": \"Teste producao\",\n  \"devedor\": { \"cpf\": \"123.456.789-09\", \"nome\": \"Fulano de Tal\" },\n  \"info_adicionais\": [ { \"nome\": \"Placa\", \"valor\": \"ABC1D23\" } ]\n}" },
+            "url": { "raw": "{{base_url}}/api/pix/producao/cobranca", "host": ["{{base_url}}"], "path": ["api", "pix", "producao", "cobranca"] }
+          }
+        },
+        {
+          "name": "3. Consultar cobrança",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token_producao}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/pix/producao/cobranca/{{txid}}", "host": ["{{base_url}}"], "path": ["api", "pix", "producao", "cobranca", "{{txid}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook (simular o BB)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"pix\": [ { \"txid\": \"EXEMPLO123\", \"endToEndId\": \"E00000000000000000000000000\", \"valor\": \"1.00\" } ]\n}" },
+        "url": { "raw": "{{base_url}}/webhook/pix/bb/{{webhook_token}}", "host": ["{{base_url}}"], "path": ["webhook", "pix", "bb", "{{webhook_token}}"] },
+        "description": "Rota pública (sem JWT). Do localhost dá 403 (IP fora do range). Simule o IP do BB com header X-Forwarded-For: 201.33.144.10 (sandbox)."
+      }
+    }
+  ]
+}

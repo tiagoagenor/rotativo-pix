@@ -1,0 +1,17 @@
+node_modules
+.npm-cache
+logs
+.git
+.gitignore
+*.md
+*.pem
+*.pfx
+*.p12
+*.key
+*.crt
+*.cer
+*.csr
+*.srl
+webhook-mtls
+empresas/**/webhook-mtls
+postman_collection.json

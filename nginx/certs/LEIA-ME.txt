@@ -1,0 +1,23 @@
+CERTIFICADOS DO NGINX (sistema completo)
+========================================
+
+Nada real é versionado (o .gitignore ignora *.pem/*.crt/*.key).
+
+Arquivos usados pelo nginx (/etc/nginx/certs):
+
+  server.crt / server.key  -> HTTPS do SEU domínio (em produção: Let's Encrypt).
+  bb-ca.pem                -> cadeia(s) do Banco do Brasil, usada para validar o
+                              certificado que o BB apresenta no WEBHOOK (mTLS).
+
+SANDBOX + PRODUÇÃO no mesmo nginx:
+  concatene as duas cadeias do BB num único bb-ca.pem:
+    cat ../empresas/oliveira/sandbox/certs/ca.pem \
+        ../empresas/oliveira/producao/certs/ca.pem > certs/bb-ca.pem
+  (o serviço Node resolve o ambiente pelo TOKEN da URL do webhook.)
+
+NÃO vai aqui: cliente.pem. Esse é do lado de GERAR pix (você é cliente do BB) e
+fica em empresas/oliveira/<ambiente>/certs/cliente.pem.
+
+TESTE LOCAL:
+  ./gerar-certs-teste.sh     (na pasta nginx/) cria server.*, bb-ca.pem de teste
+                             e client-ok/client-bad para simular o BB.

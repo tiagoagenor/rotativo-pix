@@ -1,0 +1,62 @@
+{
+  "banco": "bb",
+  "nome": "Banco do Brasil",
+  "_obs": "Endpoints e recursos PÚBLICOS da API PIX v2 do BB. Nada sensível aqui. Pode versionar.",
+
+  "oauth_scopes": "cob.write cob.read pix.read",
+
+  "ambientes": {
+    "sandbox": {
+      "oauth_url": "https://oauth.hm.bb.com.br/oauth/token",
+      "app_key_param": "gw-dev-app-key",
+      "api_bases": {
+        "sem_mtls": "https://api.extranet.hm.bb.com.br/pix/v2",
+        "com_mtls": "https://api-pix.hm.bb.com.br/pix/v2"
+      },
+      "webhook_ips": "201.33.144.0/20",
+      "simulador_pagamento": {
+        "url": "https://api.hm.bb.com.br/testes-portal-desenvolvedor/v1/boletos-pix/pagar",
+        "app_key": "95cad3f03fd9013a9d15005056825665"
+      }
+    },
+    "producao": {
+      "oauth_url": "https://oauth.bb.com.br/oauth/token",
+      "app_key_param": "gw-app-key",
+      "api_bases": {
+        "com_mtls": "https://api-pix.bb.com.br/pix/v2"
+      },
+      "webhook_ips": "170.66.0.0/16"
+    }
+  },
+
+  "recursos": {
+    "criar_cobranca":                { "metodo": "PUT",    "path": "/cob/{txid}",                    "descricao": "Cria cobrança imediata com txid" },
+    "criar_cobranca_sem_txid":       { "metodo": "POST",   "path": "/cob",                           "descricao": "Cria cobrança imediata (BB gera o txid)" },
+    "revisar_cobranca":              { "metodo": "PATCH",  "path": "/cob/{txid}",                    "descricao": "Altera dados da cobrança" },
+    "consultar_cobranca":            { "metodo": "GET",    "path": "/cob/{txid}",                    "descricao": "Consulta cobrança por txid" },
+    "listar_cobrancas":              { "metodo": "GET",    "path": "/cob",                           "descricao": "Lista cobranças por período" },
+
+    "criar_cobranca_vencimento":     { "metodo": "PUT",    "path": "/cobv/{txid}",                   "descricao": "Cria cobrança com vencimento" },
+    "revisar_cobranca_vencimento":   { "metodo": "PATCH",  "path": "/cobv/{txid}",                   "descricao": "Altera cobrança com vencimento" },
+    "consultar_cobranca_vencimento": { "metodo": "GET",    "path": "/cobv/{txid}",                   "descricao": "Consulta cobrança com vencimento" },
+    "listar_cobrancas_vencimento":   { "metodo": "GET",    "path": "/cobv",                          "descricao": "Lista cobranças com vencimento" },
+
+    "criar_lote_cobv":               { "metodo": "PUT",    "path": "/lotecobv/{id}",                 "descricao": "Cria lote de cobranças com vencimento" },
+    "consultar_lote_cobv":           { "metodo": "GET",    "path": "/lotecobv/{id}",                 "descricao": "Consulta lote de cobranças" },
+
+    "consultar_pix":                 { "metodo": "GET",    "path": "/pix/{e2eid}",                   "descricao": "Consulta um Pix recebido pelo endToEndId" },
+    "listar_pix":                    { "metodo": "GET",    "path": "/pix",                           "descricao": "Lista Pix recebidos por período" },
+    "solicitar_devolucao":           { "metodo": "PUT",    "path": "/pix/{e2eid}/devolucao/{id}",    "descricao": "Solicita devolução de um Pix" },
+    "consultar_devolucao":           { "metodo": "GET",    "path": "/pix/{e2eid}/devolucao/{id}",    "descricao": "Consulta uma devolução" },
+
+    "criar_location":                { "metodo": "POST",   "path": "/loc",                           "descricao": "Cria uma location (reserva de QR)" },
+    "listar_locations":              { "metodo": "GET",    "path": "/loc",                           "descricao": "Lista locations" },
+    "consultar_location":            { "metodo": "GET",    "path": "/loc/{id}",                      "descricao": "Consulta uma location" },
+    "qrcode_da_location":            { "metodo": "GET",    "path": "/loc/{id}/qrcode",               "descricao": "Obtém o QR de uma location" },
+    "desvincular_txid_location":     { "metodo": "DELETE", "path": "/loc/{id}/txid",                 "descricao": "Desvincula o txid de uma location" },
+
+    "configurar_webhook":            { "metodo": "PUT",    "path": "/webhook/{chave}",               "descricao": "Registra a URL de webhook por chave Pix" },
+    "consultar_webhook":             { "metodo": "GET",    "path": "/webhook/{chave}",               "descricao": "Consulta o webhook de uma chave" },
+    "excluir_webhook":               { "metodo": "DELETE", "path": "/webhook/{chave}",               "descricao": "Remove o webhook de uma chave" }
+  }
+}
