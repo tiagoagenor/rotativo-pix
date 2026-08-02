@@ -164,10 +164,38 @@ function requisitar({ method, urlStr, headers, body, agent }) {
 }
 
 /**
- * OAuth client_credentials.
- * @returns {Promise<{ok, status, access_token, debug}>}
+ * Cache do access_token OAuth por empresa+ambiente (+base), com TTL = expires_in.
+ * Evita refazer o OAuth a cada chamada ao BB. Em memória (por processo).
  */
-async function oauth(cfg) {
+const _oauthCache = new Map(); // chave -> { access_token, expira_em (ms epoch) }
+const OAUTH_MARGEM_MS = 30 * 1000; // renova 30s antes de expirar
+
+function _chaveOauth(cfg) {
+  return `${cfg.slug || '?'}|${cfg.ambiente || '?'}|${cfg.api_base || '?'}`;
+}
+
+/**
+ * OAuth client_credentials (com cache do token por empresa/ambiente).
+ * @param {object} [opts] { forcar:true } ignora o cache.
+ * @returns {Promise<{ok, status, access_token, debug, cache?}>}
+ */
+async function oauth(cfg, opts = {}) {
+  const chave = _chaveOauth(cfg);
+
+  if (!opts.forcar) {
+    const c = _oauthCache.get(chave);
+    if (c && c.access_token && c.expira_em > Date.now()) {
+      return {
+        ok: true,
+        status: 200,
+        access_token: c.access_token,
+        resposta: null,
+        cache: true,
+        debug: { passo: 'oauth', cache: true, expira_em: new Date(c.expira_em).toISOString() },
+      };
+    }
+  }
+
   const { agent, mtls, ca } = montarAgent(cfg);
   const basic = cfg.credenciais.basic || '';
   const scope = cfg.oauth_scopes || '';
@@ -197,13 +225,29 @@ async function oauth(cfg) {
   });
 
   const accessToken = resp.json && resp.json.access_token;
+  const ok = resp.status >= 200 && resp.status < 300 && !!accessToken;
+
+  // Guarda no cache com TTL = expires_in (margem de 30s). Sem expires_in, 60s.
+  if (ok) {
+    const expiresIn = Number(resp.json && resp.json.expires_in) || 60;
+    const expiraEm = Date.now() + Math.max(0, expiresIn * 1000 - OAUTH_MARGEM_MS);
+    _oauthCache.set(chave, { access_token: accessToken, expira_em: expiraEm });
+  }
+
   return {
-    ok: resp.status >= 200 && resp.status < 300 && !!accessToken,
+    ok,
     status: resp.status,
     access_token: accessToken || null,
     resposta: resumirResposta(resp),
+    cache: false,
     debug: { ...debug, status: resp.status },
   };
+}
+
+/** Limpa o cache do OAuth (usado no "testar conexão" do gestor). */
+function limparCacheOauth(cfg) {
+  if (cfg) _oauthCache.delete(_chaveOauth(cfg));
+  else _oauthCache.clear();
 }
 
 /**
@@ -320,4 +364,4 @@ async function consultarCobranca(cfg, txid) {
   };
 }
 
-module.exports = { oauth, criarCobranca, consultarCobranca, gerarTxid, mask };
+module.exports = { oauth, criarCobranca, consultarCobranca, gerarTxid, mask, limparCacheOauth };
