@@ -15,6 +15,7 @@ const jwtUtil = require('./src/jwt');
 const bb = require('./src/bb');
 const qrcode = require('./src/qrcode');
 const logger = require('./src/logger');
+const { processarPix } = require('./src/processar-pix');
 const { ipEmCidr, ipPermitido, normalizarLista } = require('./src/cidr');
 
 const app = express();
@@ -316,7 +317,14 @@ function tratarWebhook(req, res) {
     corpo: req.body,
   });
 
-  // BB espera 200.
+  // >>> SUA LÓGICA (src/processar-pix.js) — roda em 2º plano, não segura o 200.
+  Promise.resolve()
+    .then(() => processarPix(cfg, req.body))
+    .catch((e) => logger.log(cfg.slug, cfg.ambiente, {
+      evento: 'webhook', resultado: 'erro_processamento', erro: e.message,
+    }));
+
+  // BB espera 200 (respondido na hora).
   return res.status(200).json({ ok: true });
 }
 
