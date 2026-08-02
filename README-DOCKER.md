@@ -13,10 +13,14 @@ rota do webhook** — o resto (API JWT, `/health`) passa sem mTLS.
 
 ## Subir
 ```bash
-cp .env.example .env            # defina JWT_SECRET
+cp .env.example .env            # defina JWT_SECRET  (OBRIGATÓRIO antes do up)
 ./nginx/gerar-certs-teste.sh    # certs de TESTE (em produção use os reais)
 docker compose up -d --build
 ```
+> ⚠️ O `.env` é montado como **volume** (`./.env:/app/.env:ro`). Ele **precisa
+> existir antes** do `docker compose up` — se faltar, o Docker cria uma *pasta*
+> `.env` por engano. Sempre rode o `cp .env.example .env` primeiro.
+
 - App: interno em `app:3000` (não exposto).
 - nginx: `80` (redireciona) e `443`.
 

@@ -15,11 +15,9 @@ services:
   app:
     build: .
     container_name: rotativo-pix-app
-    env_file:
-      - .env
-    environment:
-      - PORT=3000
     volumes:
+      # .env como VOLUME (runtime) — o dotenv lê /app/.env. Fora do build.
+      - ./.env:/app/.env:ro
       - ./bancos:/app/bancos:ro
       - ./empresas:/app/empresas:ro
       - ./sistema.json:/app/sistema.json:ro
