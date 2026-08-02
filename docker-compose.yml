@@ -40,4 +40,5 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/acme-webroot:/var/www/certbot:ro   # desafio Let's Encrypt (ACME)
     restart: unless-stopped

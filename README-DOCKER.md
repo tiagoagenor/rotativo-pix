@@ -40,16 +40,48 @@ curl -sk --cert $C/client-ok.pem  -X POST https://localhost/webhook/pix/bb/SEU_T
 - `nginx/certs/` (server.crt/key + bb-ca.pem)
 - `.env` (JWT_SECRET)
 
-## Produção
-1. `nginx/certs/server.crt` + `server.key` = cert real do seu domínio (Let's Encrypt).
-2. `nginx/certs/bb-ca.pem` = cadeia(s) real(is) do BB. Para sandbox + prod no mesmo
-   nginx, concatene as duas:
-   ```bash
-   cat empresas/oliveira/sandbox/certs/ca.pem \
-       empresas/oliveira/producao/certs/ca.pem > nginx/certs/bb-ca.pem
-   ```
-3. Registre no BB a URL pública do webhook: `https://SEU-DOMINIO/webhook/pix/bb/{token}`
-   (o token identifica o ambiente — sandbox × produção).
+## Produção (deploy)
+
+### 1) DNS
+Aponte o domínio para o servidor (registro **A**):
+```
+ideia99.com   A   145.223.92.79
+```
+
+### 2) Subir a stack (com cert de teste, pra o nginx já responder na :80)
+```bash
+cp .env.example .env             # defina JWT_SECRET
+./nginx/gerar-certs-teste.sh     # cert temporário (autoassinado)
+docker compose up -d --build
+```
+
+### 3) Emitir o certificado real (Let's Encrypt)
+Com o DNS já apontando e o nginx no ar:
+```bash
+./nginx/obter-letsencrypt.sh ideia99.com  seu-email@dominio.com
+```
+O script usa o certbot (webroot em `/.well-known/acme-challenge/`), copia o cert
+para `nginx/certs/server.crt` + `server.key` e recarrega o nginx.
+> Renovação: rode o mesmo script periodicamente (ex.: cron semanal).
+
+> ⚠️ **Confirme na doc do BB** se o webhook aceita cert público (Let's Encrypt) ou
+> exige **ICP-Brasil**. Se exigir ICP, troque só o `server.crt`/`server.key` por um
+> cert de servidor ICP-Brasil — o resto da config não muda.
+
+### 4) CA do BB (validação do webhook mTLS)
+`nginx/certs/bb-ca.pem` = cadeia(s) real(is) do BB. Sandbox + produção no mesmo nginx:
+```bash
+cat empresas/oliveira/sandbox/certs/ca.pem \
+    empresas/oliveira/producao/certs/ca.pem > nginx/certs/bb-ca.pem
+docker compose exec nginx nginx -s reload
+```
+
+### 5) Registrar o webhook no BB
+URL pública (o token identifica o ambiente — sandbox × produção):
+```
+https://ideia99.com/webhook/pix/bb/{token_sandbox}
+https://ideia99.com/webhook/pix/bb/{token_producao}
+```
 
 ## Observação
 Este compose (raiz) **substitui** os gateways `webhook-mtls/` por-ambiente: aqui o
