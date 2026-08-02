@@ -4,6 +4,19 @@ logs
 .git
 .gitignore
 *.md
+
+# Segredos e config nunca entram no contexto de build (vão por runtime):
+# .env via env_file; config e certs via volumes no docker-compose.
+.env
+.env.*
+!.env.example
+api-usuarios.json
+sistema.json
+empresas
+bancos
+nginx/certs
+nginx/letsencrypt
+nginx/acme-webroot
 *.pem
 *.pfx
 *.p12
