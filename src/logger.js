@@ -79,4 +79,31 @@ function log(slug, ambiente, dados) {
   }
 }
 
-module.exports = { log, mascarar, DIR_LOGS };
+/**
+ * Lê as últimas N linhas do log de uma empresa+ambiente, já parseadas.
+ * As linhas foram gravadas por log() JÁ mascaradas — nenhum segredo é re-exposto.
+ * @param {string} slug
+ * @param {string} ambiente
+ * @param {object} [opts] { limite=100 (max 1000), evento=null }
+ * @returns {Array<object>} linhas em ordem cronológica (mais antigas primeiro)
+ */
+function lerUltimas(slug, ambiente, opts = {}) {
+  const arquivo = path.join(DIR_LOGS, `pix-${slug || 'sistema'}-${ambiente || 'na'}.log`);
+  if (!fs.existsSync(arquivo)) return [];
+
+  const limite = Math.max(1, Math.min(Number(opts.limite) || 100, 1000));
+  const evento = opts.evento ? String(opts.evento) : null;
+
+  const conteudo = fs.readFileSync(arquivo, 'utf8');
+  const parsed = [];
+  for (const linha of conteudo.split('\n')) {
+    if (!linha.trim()) continue;
+    let obj;
+    try { obj = JSON.parse(linha); } catch (_) { continue; }
+    if (evento && obj.evento !== evento) continue;
+    parsed.push(obj);
+  }
+  return parsed.slice(-limite);
+}
+
+module.exports = { log, mascarar, lerUltimas, DIR_LOGS };

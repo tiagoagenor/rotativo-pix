@@ -36,6 +36,12 @@ function extrairBearer(req) {
   return m ? m[1].trim() : null;
 }
 
+/** true se a query pediu debug (?debug=1 ou ?debug=true). */
+function querDebug(req) {
+  const d = req.query && req.query.debug;
+  return d === '1' || d === 'true';
+}
+
 const AMBIENTES = ['sandbox', 'producao'];
 
 /** Middleware: valida o :ambiente da URL (sandbox|producao). */
@@ -209,7 +215,7 @@ app.post('/api/pix/:ambiente/cobranca', validarAmbiente, exigirJwt, async (req, 
     });
 
     if (!resultado.ok) {
-      return res.status(502).json({
+      const erroResp = {
         ok: false,
         ambiente,
         api_base: cfg.api_base,
@@ -217,7 +223,10 @@ app.post('/api/pix/:ambiente/cobranca', validarAmbiente, exigirJwt, async (req, 
         status_bb: resultado.status,
         erro: 'Falha na API do BB',
         resposta_bb: resultado.resposta,
-      });
+      };
+      // debug=1: inclui os passos (já mascarados pelo bb.js) também no erro.
+      if (querDebug(req)) erroResp.debug = resultado.debug;
+      return res.status(502).json(erroResp);
     }
 
     let qr = null;
@@ -225,14 +234,17 @@ app.post('/api/pix/:ambiente/cobranca', validarAmbiente, exigirJwt, async (req, 
       try { qr = await qrcode.gerarDataUri(resultado.copia_cola, { tipo: 'png' }); } catch (_) { qr = null; }
     }
 
-    return res.json({
+    const okResp = {
       ok: true,
       ambiente,
       api_base: cfg.api_base,
       txid: resultado.txid,
       copia_cola: resultado.copia_cola,
       qrcode: qr,
-    });
+    };
+    // debug=1: devolve os passos (OAuth + PUT) na resposta, com segredos mascarados.
+    if (querDebug(req)) okResp.debug = resultado.debug;
+    return res.json(okResp);
   } catch (e) {
     logger.log(slug, ambiente, { evento: 'criar_cobranca', erro: e.message });
     return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
@@ -278,14 +290,16 @@ app.get('/api/pix/:ambiente/cobranca/:txid', validarAmbiente, exigirJwt, async (
     });
 
     if (!resultado.ok) {
-      return res.status(502).json({
+      const erroResp = {
         ok: false,
         ambiente,
         etapa: resultado.etapa,
         status_bb: resultado.status,
         erro: 'Falha na API do BB',
         resposta_bb: resultado.resposta,
-      });
+      };
+      if (querDebug(req)) erroResp.debug = resultado.debug;
+      return res.status(502).json(erroResp);
     }
 
     // Atualiza o cache com o que o BB devolveu (status + copia_cola quando houver).
@@ -300,7 +314,9 @@ app.get('/api/pix/:ambiente/cobranca/:txid', validarAmbiente, exigirJwt, async (
       });
     } catch (_) { /* cache é best-effort */ }
 
-    return res.json({ ok: true, ambiente, txid, fonte: 'bb', cobranca: resultado.resposta });
+    const okResp = { ok: true, ambiente, txid, fonte: 'bb', cobranca: resultado.resposta };
+    if (querDebug(req)) okResp.debug = resultado.debug;
+    return res.json(okResp);
   } catch (e) {
     logger.log(slug, ambiente, { evento: 'consultar_cobranca', erro: e.message });
     return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
@@ -321,6 +337,23 @@ app.get('/api/pix/:ambiente/webhooks', validarAmbiente, exigirJwt, (req, res) =>
     return res.json({ ok: true, ambiente, total: lista.length, webhooks: lista });
   } catch (e) {
     logger.log(slug, ambiente, { evento: 'listar_webhooks', erro: e.message });
+    return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
+  }
+});
+
+// 3c) Ver logs da empresa+ambiente  (/api/pix/:ambiente/logs)  [JWT]
+// empresa vem do JWT, ambiente da URL. Lê logs/pix-{empresa}-{ambiente}.log e
+// devolve as últimas N linhas (JSON por linha) já mascaradas pelo logger.
+app.get('/api/pix/:ambiente/logs', validarAmbiente, exigirJwt, (req, res) => {
+  const slug = req.auth.empresa;
+  const ambiente = req.params.ambiente;
+  const limite = Math.min(Math.max(Number(req.query && req.query.limit) || 100, 1), 1000);
+  const evento = (req.query && req.query.evento) ? String(req.query.evento) : null;
+
+  try {
+    const linhas = logger.lerUltimas(slug, ambiente, { limite, evento });
+    return res.json({ ok: true, ambiente, total: linhas.length, linhas });
+  } catch (e) {
     return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
   }
 });
