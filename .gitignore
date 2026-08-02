@@ -17,6 +17,16 @@ api-usuarios.json
 # Logs do PIX em arquivo (podem ter dados de requisição).
 logs/
 
+# Payloads crus dos webhooks (dados de pagamento) — nunca versionar.
+webhooks/
+
+# Cache de status das cobranças (por ambiente).
+cache/
+
+# Estado local de fila / dados do RabbitMQ, se algum dia montar em volume local.
+rabbitmq-data/
+.queue-state/
+
 # Certificados e chaves (mTLS). Versione só o LEIA-ME.txt de cada pasta certs/.
 **/certs/*
 !**/certs/LEIA-ME.txt

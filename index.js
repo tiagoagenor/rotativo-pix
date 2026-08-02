@@ -15,7 +15,9 @@ const jwtUtil = require('./src/jwt');
 const bb = require('./src/bb');
 const qrcode = require('./src/qrcode');
 const logger = require('./src/logger');
-const { processarPix } = require('./src/processar-pix');
+const webhookStore = require('./src/webhook-store');
+const fila = require('./src/fila');
+const cacheCob = require('./src/cache-cob');
 const { ipEmCidr, ipPermitido, normalizarLista } = require('./src/cidr');
 
 const app = express();
@@ -252,10 +254,23 @@ app.get('/api/pix/:ambiente/cobranca/:txid', validarAmbiente, exigirJwt, async (
 
   if (!apiIpLiberado(cfg, req, res, slug, ambiente)) return;
 
+  // ?fonte=bb (ou ?force=1) força ir ao BB, ignorando o cache.
+  const forcarBb = (req.query && (req.query.fonte === 'bb' || req.query.force === '1' || req.query.force === 'true'));
+
+  // Cache: se já está CONCLUIDA, responde na hora (não incomoda o BB).
+  if (!forcarBb) {
+    const c = cacheCob.ler(ambiente, txid);
+    if (c && String(c.status).toUpperCase() === 'CONCLUIDA') {
+      logger.log(slug, ambiente, { evento: 'consultar_cobranca', fonte: 'cache', txid, status: c.status });
+      return res.json({ ok: true, ambiente, txid, fonte: 'cache', cache: c });
+    }
+  }
+
   try {
     const resultado = await bb.consultarCobranca(cfg, txid);
     logger.log(slug, ambiente, {
       evento: 'consultar_cobranca',
+      fonte: 'bb',
       status: resultado.status,
       etapa: resultado.etapa,
       txid,
@@ -272,9 +287,40 @@ app.get('/api/pix/:ambiente/cobranca/:txid', validarAmbiente, exigirJwt, async (
         resposta_bb: resultado.resposta,
       });
     }
-    return res.json({ ok: true, ambiente, txid, cobranca: resultado.resposta });
+
+    // Atualiza o cache com o que o BB devolveu (status + copia_cola quando houver).
+    try {
+      const cob = resultado.resposta || {};
+      const statusBb = cob.status || null;
+      const copiaCola = cob.pixCopiaECola || null;
+      cacheCob.gravar(ambiente, txid, {
+        status: statusBb ? String(statusBb).toUpperCase() : undefined,
+        status_bb: statusBb,
+        copia_cola: copiaCola || undefined,
+      });
+    } catch (_) { /* cache é best-effort */ }
+
+    return res.json({ ok: true, ambiente, txid, fonte: 'bb', cobranca: resultado.resposta });
   } catch (e) {
     logger.log(slug, ambiente, { evento: 'consultar_cobranca', erro: e.message });
+    return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
+  }
+});
+
+// 3b) Listar/consultar webhooks salvos  (/api/pix/:ambiente/webhooks)  [JWT]
+app.get('/api/pix/:ambiente/webhooks', validarAmbiente, exigirJwt, (req, res) => {
+  const slug = req.auth.empresa;
+  const ambiente = req.params.ambiente;
+  const { txid, data } = req.query || {};
+  const limite = Math.min(Number(req.query && req.query.limite) || 200, 1000);
+  const incluirCorpo = req.query && (req.query.corpo === '1' || req.query.corpo === 'true');
+
+  try {
+    const lista = webhookStore.listar({ ambiente, txid, data, limite, incluirCorpo });
+    logger.log(slug, ambiente, { evento: 'listar_webhooks', total: lista.length, filtro: { txid: txid || null, data: data || null } });
+    return res.json({ ok: true, ambiente, total: lista.length, webhooks: lista });
+  } catch (e) {
+    logger.log(slug, ambiente, { evento: 'listar_webhooks', erro: e.message });
     return res.status(500).json({ ok: false, erro: 'Erro interno', detalhe: e.message });
   }
 });
@@ -317,15 +363,33 @@ function tratarWebhook(req, res) {
     corpo: req.body,
   });
 
-  // >>> SUA LÓGICA (src/processar-pix.js) — roda em 2º plano, não segura o 200.
-  Promise.resolve()
-    .then(() => processarPix(cfg, req.body))
-    .catch((e) => logger.log(cfg.slug, cfg.ambiente, {
-      evento: 'webhook', resultado: 'erro_processamento', erro: e.message,
-    }));
+  const empresaId = (cfg.empresa && cfg.empresa.id != null) ? cfg.empresa.id : null;
+
+  // (a) Rede de segurança: grava o payload CRU em disco (SÍNCRONO). Mesmo se a
+  //     fila/rabbit estiver fora, o evento não se perde (reprocessar/CRON lê).
+  let arquivoInfo = null;
+  try {
+    arquivoInfo = webhookStore.salvar(cfg.ambiente, req.body, { slug: cfg.slug, empresa_id: empresaId, ip });
+  } catch (e) {
+    logger.log(cfg.slug, cfg.ambiente, { evento: 'webhook', resultado: 'erro_salvar_arquivo', erro: e.message });
+  }
+
+  // (b) Publica na fila do ambiente (durable+persistent) — FIRE-AND-FORGET,
+  //     não segura o 200 pro BB. Se falhar, o arquivo em disco é o backup.
+  const evento = {
+    ambiente: cfg.ambiente,
+    slug: cfg.slug,
+    empresa_id: empresaId,
+    recebido_em: arquivoInfo ? arquivoInfo.recebido_em : new Date().toISOString(),
+    arquivo: arquivoInfo ? arquivoInfo.arquivo : null,
+    corpo: req.body,
+  };
+  fila.publicar(cfg.ambiente, evento)
+    .then((r) => logger.log(cfg.slug, cfg.ambiente, { evento: 'webhook', resultado: 'publicado', fila: r.fila }))
+    .catch((e) => logger.log(cfg.slug, cfg.ambiente, { evento: 'webhook', resultado: 'erro_publicar', erro: e.message }));
 
   // BB espera 200 (respondido na hora).
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, recebido: true });
 }
 
 app.post('/webhook/pix/bb/:token', tratarWebhook);
@@ -348,6 +412,20 @@ app.listen(PORT, () => {
   if (!process.env.JWT_SECRET) {
     console.warn('[rotativo-pix] AVISO: JWT_SECRET não definido — defina no .env');
   }
+
+  // Retenção dos arquivos de webhook: roda no boot e depois 1x/dia.
+  const retencaoDias = Number(process.env.WEBHOOK_RETENCAO_DIAS) || 90;
+  const rodarRetencao = () => {
+    try {
+      const n = webhookStore.limparAntigos(retencaoDias);
+      if (n > 0) console.log(`[rotativo-pix] retenção: ${n} arquivo(s) de webhook > ${retencaoDias}d apagado(s)`);
+    } catch (e) {
+      console.warn(`[rotativo-pix] retenção falhou: ${e.message}`);
+    }
+  };
+  rodarRetencao();
+  const timerRetencao = setInterval(rodarRetencao, 24 * 60 * 60 * 1000);
+  if (timerRetencao.unref) timerRetencao.unref();
 });
 
 module.exports = app;

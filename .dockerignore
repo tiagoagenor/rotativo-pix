@@ -1,6 +1,9 @@
 node_modules
 .npm-cache
 logs
+webhooks
+cache
+rabbitmq-data
 .git
 .gitignore
 *.md

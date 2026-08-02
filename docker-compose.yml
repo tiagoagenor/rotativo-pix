@@ -1,20 +1,33 @@
 # =============================================================================
 # Sistema completo em Docker:
 #   nginx (443)  ->  app Node (3000)
+#   app/worker   ->  rabbitmq (fila do webhook)  ->  MySQL do backend (externo)
 #
 #   - nginx é o ÚNICO ponto de entrada (HTTPS 443).
 #   - mTLS é EXIGIDO apenas na rota /webhook/pix/ (só o BB entra).
 #   - Todo o resto (API JWT, /health) passa SEM mTLS.
-#   - A CONFIG (empresas/, bancos/, sistema.json, api-usuarios.json) e os
-#     LOGS entram por volume — não ficam dentro da imagem.
+#   - O webhook SALVA o payload em disco + PUBLICA na fila (200 na hora); o
+#     worker consome e escreve no banco do backend (replica o confirm()).
+#   - RabbitMQ fica SÓ na rede interna do Docker (porta 5672 NÃO é publicada).
+#     A porta de management (15672) é publicada só em 127.0.0.1 (via SSH).
+#   - A CONFIG (empresas/, bancos/, sistema.json, api-usuarios.json), os LOGS,
+#     os webhooks salvos e o cache entram por volume — não ficam na imagem.
 #
-# Subir:   docker compose up -d --build
+# Subir:    docker compose up -d --build
+# Escalar:  docker compose up -d --scale worker=2   (2 réplicas do worker)
 # Derrubar: docker compose down
 # =============================================================================
 services:
   app:
     build: .
     container_name: rotativo-pix-app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Fonte primária das variáveis é ../cache/.env (montado em /app/.env, lido
+      # pelo dotenv). Esta linha só garante um default do host da fila.
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672}
     volumes:
       # Dados/segredos ficam FORA do projeto, em ../cache (relativo ao compose).
       # Projeto: /root/rotativo/rotativo-pix  ->  ../cache = /root/rotativo/cache
@@ -24,8 +37,58 @@ services:
       - ../cache/sistema.json:/app/sistema.json:ro
       - ../cache/api-usuarios.json:/app/api-usuarios.json:ro
       - ../cache/logs:/app/logs
+      # Webhooks crus + cache de status precisam sobreviver a rebuilds.
+      - ../cache/webhooks:/app/webhooks
+      - ../cache/cache:/app/cache
     expose:
       - "3000"
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["node", "worker.js"]
+    # SEM container_name: permite escalar (docker compose up --scale worker=2).
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672}
+    volumes:
+      - ../cache/.env:/app/.env:ro
+      - ../cache/bancos:/app/bancos:ro
+      - ../cache/empresas:/app/empresas:ro
+      - ../cache/sistema.json:/app/sistema.json:ro
+      - ../cache/api-usuarios.json:/app/api-usuarios.json:ro
+      - ../cache/logs:/app/logs
+      - ../cache/webhooks:/app/webhooks
+      - ../cache/cache:/app/cache
+    restart: unless-stopped
+    # 2 réplicas: com `docker stack deploy` o `deploy.replicas` já sobe 2;
+    # com `docker compose` use `--scale worker=2`. O UPDATE idempotente + o
+    # índice único em movimentos_carteira.transacao_id tornam a concorrência
+    # segura entre réplicas.
+    deploy:
+      replicas: 2
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rotativo-pix-rabbitmq
+    hostname: rotativo-pix-rabbitmq   # nome estável -> dados do node persistem
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      # 5672 (AMQP) NÃO é publicado — só a rede interna do Docker acessa.
+      # Management só em localhost (acesse via túnel SSH).
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   nginx:
@@ -41,3 +104,6 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/acme-webroot:/var/www/certbot:ro   # desafio Let's Encrypt (ACME)
     restart: unless-stopped
+
+volumes:
+  rabbitmq-data:

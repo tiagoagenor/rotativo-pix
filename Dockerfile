@@ -9,7 +9,9 @@ RUN npm install --omit=dev && npm cache clean --force
 
 # Código da aplicação (a CONFIG — empresas/, bancos/, sistema.json,
 # api-usuarios.json — entra por volume no docker-compose, não na imagem).
-COPY index.js ./
+# A MESMA imagem serve o app (index.js) e o worker (worker.js) — o comando
+# muda no docker-compose por serviço.
+COPY index.js worker.js reprocessar.js ./
 COPY src ./src
 
 EXPOSE 3000
