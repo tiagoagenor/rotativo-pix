@@ -39,10 +39,15 @@ curl -sk --cert $C/client-ok.pem  -X POST https://localhost/webhook/pix/bb/SEU_T
 ```
 
 ## O que entra por volume (não fica na imagem)
-- `bancos/`, `empresas/`, `sistema.json`, `api-usuarios.json` (config, read-only)
-- `logs/` (gravável)
-- `nginx/certs/` (server.crt/key + bb-ca.pem)
-- `.env` (JWT_SECRET)
+A config, os segredos e os logs ficam **fora do projeto**, na pasta irmã
+`../cache` (no servidor: `/root/rotativo/cache`). Assim você dá `git pull` /
+rebuilda o projeto sem tocar nos dados. O `bootstrap-cache.sh` monta essa pasta.
+
+- `../cache/.env` (JWT_SECRET)
+- `../cache/bancos/`, `../cache/empresas/`, `../cache/sistema.json`,
+  `../cache/api-usuarios.json` (config real, read-only)
+- `../cache/logs/` (gravável)
+- `nginx/certs/` (server.crt/key + bb-ca.pem) — continua no projeto
 
 ## Produção (deploy)
 
@@ -52,14 +57,29 @@ Aponte o domínio para o servidor (registro **A**):
 ideia99.com   A   145.223.92.79
 ```
 
-### 2) Subir a stack (com cert de teste, pra o nginx já responder na :80)
+### 2) Montar a pasta de dados/segredos (../cache) e editar
 ```bash
-cp .env.example .env             # defina JWT_SECRET
+./bootstrap-cache.sh             # cria /root/rotativo/cache com .env + config
+```
+Edite os arquivos reais (fora do projeto):
+```bash
+nano ../cache/.env                                   # JWT_SECRET
+nano ../cache/empresas/oliveira/sandbox/config.json  # credenciais BB
+nano ../cache/api-usuarios.json                      # usuarios/senhas
+```
+Copie os certs do BB (do seu PC) para o cache:
+```bash
+scp .../sandbox/certs/cliente.pem .../sandbox/certs/ca.pem \
+  root@145.223.92.79:/root/rotativo/cache/empresas/oliveira/sandbox/certs/
+```
+
+### 3) Subir a stack (com cert de teste, pra o nginx já responder na :80)
+```bash
 ./nginx/gerar-certs-teste.sh     # cert temporário (autoassinado)
 docker compose up -d --build
 ```
 
-### 3) Emitir o certificado real (Let's Encrypt)
+### 4) Emitir o certificado real (Let's Encrypt)
 Com o DNS já apontando e o nginx no ar:
 ```bash
 ./nginx/obter-letsencrypt.sh ideia99.com  seu-email@dominio.com
@@ -72,15 +92,16 @@ para `nginx/certs/server.crt` + `server.key` e recarrega o nginx.
 > exige **ICP-Brasil**. Se exigir ICP, troque só o `server.crt`/`server.key` por um
 > cert de servidor ICP-Brasil — o resto da config não muda.
 
-### 4) CA do BB (validação do webhook mTLS)
-`nginx/certs/bb-ca.pem` = cadeia(s) real(is) do BB. Sandbox + produção no mesmo nginx:
+### 5) CA do BB (validação do webhook mTLS)
+`nginx/certs/bb-ca.pem` = cadeia(s) real(is) do BB. Sandbox + produção no mesmo nginx
+(os certs agora ficam no cache):
 ```bash
-cat empresas/oliveira/sandbox/certs/ca.pem \
-    empresas/oliveira/producao/certs/ca.pem > nginx/certs/bb-ca.pem
+cat ../cache/empresas/oliveira/sandbox/certs/ca.pem \
+    ../cache/empresas/oliveira/producao/certs/ca.pem > nginx/certs/bb-ca.pem
 docker compose exec nginx nginx -s reload
 ```
 
-### 5) Registrar o webhook no BB
+### 6) Registrar o webhook no BB
 URL pública (o token identifica o ambiente — sandbox × produção):
 ```
 https://ideia99.com/webhook/pix/bb/{token_sandbox}

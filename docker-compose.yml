@@ -16,13 +16,14 @@ services:
     build: .
     container_name: rotativo-pix-app
     volumes:
-      # .env como VOLUME (runtime) — o dotenv lê /app/.env. Fora do build.
-      - ./.env:/app/.env:ro
-      - ./bancos:/app/bancos:ro
-      - ./empresas:/app/empresas:ro
-      - ./sistema.json:/app/sistema.json:ro
-      - ./api-usuarios.json:/app/api-usuarios.json:ro
-      - ./logs:/app/logs
+      # Dados/segredos ficam FORA do projeto, em ../cache (relativo ao compose).
+      # Projeto: /root/rotativo/rotativo-pix  ->  ../cache = /root/rotativo/cache
+      - ../cache/.env:/app/.env:ro
+      - ../cache/bancos:/app/bancos:ro
+      - ../cache/empresas:/app/empresas:ro
+      - ../cache/sistema.json:/app/sistema.json:ro
+      - ../cache/api-usuarios.json:/app/api-usuarios.json:ro
+      - ../cache/logs:/app/logs
     expose:
       - "3000"
     restart: unless-stopped
